@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { TrendingUp, FileText, Calculator, DollarSign, Download, RefreshCw, CheckCircle, AlertTriangle, Brain } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 // REMOVE: import { OpenAIService } from '../services/openai';
 
 export const FinancialStatements: React.FC = () => {
@@ -516,6 +518,110 @@ export const FinancialStatements: React.FC = () => {
     }
   };
 
+  // PDF Export Handler
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    let y = 32;
+    doc.setFontSize(20);
+    doc.text('Financial Statements Report', 40, y);
+    y += 28;
+    doc.setFontSize(12);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 40, y);
+    y += 20;
+
+    // Data Summary
+    doc.setFontSize(14);
+    doc.text('Data Source Summary', 40, y);
+    y += 16;
+    autoTable(doc, {
+      startY: y,
+      head: [['Metric', 'Value']],
+      body: [
+        ['Total Transactions', dataSummary.totalTransactions],
+        ['Total Revenue', `₹${dataSummary.revenue.toLocaleString()}`],
+        ['Total Expenses', `₹${dataSummary.expenses.toLocaleString()}`],
+        ['Net Cash Balance', `₹${Math.max(0, dataSummary.cashBalance).toLocaleString()}`],
+        ['COGS', `₹${dataSummary.cogs.toLocaleString()}`],
+        ['Accounts Receivable', `₹${dataSummary.accountsReceivable.toLocaleString()}`],
+        ['Accounts Payable', `₹${dataSummary.accountsPayable.toLocaleString()}`],
+        ['Inventory Assets', `₹${dataSummary.inventory.toLocaleString()}`],
+      ],
+      theme: 'grid',
+      margin: { left: 40, right: 40 },
+      styles: { fontSize: 10 },
+    });
+    y = (doc as any).lastAutoTable.finalY + 16;
+
+    // Balance Sheet
+    doc.setFontSize(14);
+    doc.text('Balance Sheet', 40, y);
+    y += 10;
+    autoTable(doc, {
+      startY: y,
+      head: [['Category', 'Account', 'Amount (₹)']],
+      body: state.financialStatements.balanceSheet.map(item => [item.category, item.account, `₹${item.amount.toLocaleString()}`]),
+      theme: 'grid',
+      margin: { left: 40, right: 40 },
+      styles: { fontSize: 10 },
+    });
+    y = (doc as any).lastAutoTable.finalY + 16;
+
+    // Profit & Loss
+    doc.setFontSize(14);
+    doc.text('Profit & Loss Statement', 40, y);
+    y += 10;
+    autoTable(doc, {
+      startY: y,
+      head: [['Account', 'Amount (₹)']],
+      body: state.financialStatements.profitLoss.map(item => [item.account, `₹${item.amount.toLocaleString()}`]),
+      theme: 'grid',
+      margin: { left: 40, right: 40 },
+      styles: { fontSize: 10 },
+    });
+    y = (doc as any).lastAutoTable.finalY + 16;
+
+    // Trial Balance
+    doc.setFontSize(14);
+    doc.text('Trial Balance', 40, y);
+    y += 10;
+    autoTable(doc, {
+      startY: y,
+      head: [['Account', 'Debit (₹)', 'Credit (₹)']],
+      body: state.financialStatements.trialBalance.map(item => [item.account, item.debit > 0 ? `₹${item.debit.toLocaleString()}` : '', item.credit > 0 ? `₹${item.credit.toLocaleString()}` : '']),
+      theme: 'grid',
+      margin: { left: 40, right: 40 },
+      styles: { fontSize: 10 },
+    });
+    y = (doc as any).lastAutoTable.finalY + 16;
+
+    // Cash Flow
+    doc.setFontSize(14);
+    doc.text('Cash Flow Statement', 40, y);
+    y += 10;
+    autoTable(doc, {
+      startY: y,
+      head: [['Section', 'Particulars', 'Amount (₹)']],
+      body: state.financialStatements.cashFlow.map(item => [item.type, item.description, `₹${item.amount.toLocaleString()}`]),
+      theme: 'grid',
+      margin: { left: 40, right: 40 },
+      styles: { fontSize: 10 },
+    });
+    y = (doc as any).lastAutoTable.finalY + 16;
+
+    // Professional Analysis
+    if (state.financialStatements.professionalNotes?.professional_analysis) {
+      doc.setFontSize(14);
+      doc.text('Professional Financial Analysis', 40, y);
+      y += 10;
+      doc.setFontSize(10);
+      const analysisLines = doc.splitTextToSize(state.financialStatements.professionalNotes.professional_analysis, 500);
+      doc.text(analysisLines, 40, y);
+      y += analysisLines.length * 12 + 8;
+    }
+
+    doc.save(`Financial_Statements_${new Date().toISOString().slice(0,10)}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -588,7 +694,7 @@ export const FinancialStatements: React.FC = () => {
               <RefreshCw className={`w-5 h-5 ${isGenerating ? 'animate-spin' : ''}`} />
               <span>{isGenerating ? 'Generating with AI analysis...' : 'Generate Professional Statements'}</span>
             </button>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+            <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors" onClick={handleDownloadPDF}>
               <Download className="w-5 h-5" />
               <span>Export PDF</span>
             </button>
